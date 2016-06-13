@@ -1,13 +1,13 @@
 #include <unicorn/unicorn.h>
 
 #define HARDWARE_ARCHITECTURE UC_ARCH_SPARC
-#define HARDWARE_MODE UC_MODE_32
+#define HARDWARE_MODE UC_MODE_SPARC32|UC_MODE_BIG_ENDIAN
 
 #define MEMORY_STARTING_ADDRESS 0x1000000
 #define MEMORY_SIZE 2 * 1024 * 1024
 #define MEMORY_PERMISSIONS UC_PROT_ALL
 
-#define BINARY_CODE "\x02\xbc"
+#define BINARY_CODE "\x02\xbc\x00\x00"
 
 int main(int argc, char **argv, char **envp) {
   uc_engine *uc;

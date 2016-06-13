@@ -1,6 +1,9 @@
 /* Autogen header for Unicorn Engine - DONOT MODIFY */
 #ifndef UNICORN_AUTOGEN_X86_64_H
 #define UNICORN_AUTOGEN_X86_64_H
+#define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_x86_64
+#define use_idiv_instructions_rt use_idiv_instructions_rt_x86_64
+#define tcg_target_deposit_valid tcg_target_deposit_valid_x86_64
 #define helper_power_down helper_power_down_x86_64
 #define check_exit_request check_exit_request_x86_64
 #define address_space_unregister address_space_unregister_x86_64
@@ -8,6 +11,7 @@
 #define phys_mem_clean phys_mem_clean_x86_64
 #define tb_cleanup tb_cleanup_x86_64
 #define memory_map memory_map_x86_64
+#define memory_map_ptr memory_map_ptr_x86_64
 #define memory_unmap memory_unmap_x86_64
 #define memory_free memory_free_x86_64
 #define helper_raise_exception helper_raise_exception_x86_64
@@ -2254,7 +2258,6 @@
 #define parse_value parse_value_x86_64
 #define par_write par_write_x86_64
 #define patch_reloc patch_reloc_x86_64
-#define pause_all_vcpus pause_all_vcpus_x86_64
 #define phys_map_node_alloc phys_map_node_alloc_x86_64
 #define phys_map_node_reserve phys_map_node_reserve_x86_64
 #define phys_mem_alloc phys_mem_alloc_x86_64
@@ -2413,9 +2416,6 @@
 #define qemu_clock_get_us qemu_clock_get_us_x86_64
 #define qemu_clock_ptr qemu_clock_ptr_x86_64
 #define qemu_clocks qemu_clocks_x86_64
-#define qemu_cond_destroy qemu_cond_destroy_x86_64
-#define qemu_cpu_is_self qemu_cpu_is_self_x86_64
-#define qemu_cpu_kick_thread qemu_cpu_kick_thread_x86_64
 #define qemu_daemon qemu_daemon_x86_64
 #define qemu_event_destroy qemu_event_destroy_x86_64
 #define qemu_event_init qemu_event_init_x86_64
@@ -2441,7 +2441,6 @@
 #define qemu_log_flush qemu_log_flush_x86_64
 #define qemu_loglevel_mask qemu_loglevel_mask_x86_64
 #define qemu_log_vprintf qemu_log_vprintf_x86_64
-#define qemu_mutex_destroy qemu_mutex_destroy_x86_64
 #define qemu_mutex_lock_ramlist qemu_mutex_lock_ramlist_x86_64
 #define qemu_mutex_trylock qemu_mutex_trylock_x86_64
 #define qemu_mutex_unlock_ramlist qemu_mutex_unlock_ramlist_x86_64
@@ -2512,9 +2511,7 @@
 #define qemu_st_helpers qemu_st_helpers_x86_64
 #define qemu_strnlen qemu_strnlen_x86_64
 #define qemu_strsep qemu_strsep_x86_64
-#define qemu_tcg_cpu_thread_fn qemu_tcg_cpu_thread_fn_x86_64
 #define qemu_tcg_init_vcpu qemu_tcg_init_vcpu_x86_64
-#define qemu_thread_exit qemu_thread_exit_x86_64
 #define qemu_try_memalign qemu_try_memalign_x86_64
 #define qentry_destroy qentry_destroy_x86_64
 #define qerror_human qerror_human_x86_64
@@ -2807,7 +2804,6 @@
 #define tb_phys_invalidate tb_phys_invalidate_x86_64
 #define tb_reset_jump tb_reset_jump_x86_64
 #define tb_set_jmp_target tb_set_jmp_target_x86_64
-#define tb_set_jmp_target1 tb_set_jmp_target1_x86_64
 #define tcg_accel_class_init tcg_accel_class_init_x86_64
 #define tcg_accel_type tcg_accel_type_x86_64
 #define tcg_add_param_i32 tcg_add_param_i32_x86_64
@@ -2944,6 +2940,7 @@
 #define tcg_init tcg_init_x86_64
 #define tcg_invert_cond tcg_invert_cond_x86_64
 #define tcg_la_bb_end tcg_la_bb_end_x86_64
+#define tcg_la_br_end tcg_la_br_end_x86_64
 #define tcg_la_func_end tcg_la_func_end_x86_64
 #define tcg_liveness_analysis tcg_liveness_analysis_x86_64
 #define tcg_malloc tcg_malloc_x86_64
@@ -3014,8 +3011,6 @@
 #define tcg_reg_alloc_op tcg_reg_alloc_op_x86_64
 #define tcg_reg_alloc_start tcg_reg_alloc_start_x86_64
 #define tcg_reg_free tcg_reg_free_x86_64
-#define tcg_register_jit tcg_register_jit_x86_64
-#define tcg_register_jit_int tcg_register_jit_int_x86_64
 #define tcg_reg_sync tcg_reg_sync_x86_64
 #define tcg_set_frame tcg_set_frame_x86_64
 #define tcg_set_nop tcg_set_nop_x86_64

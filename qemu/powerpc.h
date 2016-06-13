@@ -1,6 +1,9 @@
 /* Autogen header for Unicorn Engine - DONOT MODIFY */
 #ifndef UNICORN_AUTOGEN_POWERPC_H
 #define UNICORN_AUTOGEN_POWERPC_H
+#define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_powerpc
+#define use_idiv_instructions_rt use_idiv_instructions_rt_powerpc
+#define tcg_target_deposit_valid tcg_target_deposit_valid_powerpc
 #define helper_power_down helper_power_down_powerpc
 #define check_exit_request check_exit_request_powerpc
 #define address_space_unregister address_space_unregister_powerpc
@@ -8,6 +11,7 @@
 #define phys_mem_clean phys_mem_clean_powerpc
 #define tb_cleanup tb_cleanup_powerpc
 #define memory_map memory_map_powerpc
+#define memory_map_ptr memory_map_ptr_powerpc
 #define memory_unmap memory_unmap_powerpc
 #define memory_free memory_free_powerpc
 #define helper_raise_exception helper_raise_exception_powerpc
@@ -2254,7 +2258,6 @@
 #define parse_value parse_value_powerpc
 #define par_write par_write_powerpc
 #define patch_reloc patch_reloc_powerpc
-#define pause_all_vcpus pause_all_vcpus_powerpc
 #define phys_map_node_alloc phys_map_node_alloc_powerpc
 #define phys_map_node_reserve phys_map_node_reserve_powerpc
 #define phys_mem_alloc phys_mem_alloc_powerpc
@@ -2413,9 +2416,6 @@
 #define qemu_clock_get_us qemu_clock_get_us_powerpc
 #define qemu_clock_ptr qemu_clock_ptr_powerpc
 #define qemu_clocks qemu_clocks_powerpc
-#define qemu_cond_destroy qemu_cond_destroy_powerpc
-#define qemu_cpu_is_self qemu_cpu_is_self_powerpc
-#define qemu_cpu_kick_thread qemu_cpu_kick_thread_powerpc
 #define qemu_daemon qemu_daemon_powerpc
 #define qemu_event_destroy qemu_event_destroy_powerpc
 #define qemu_event_init qemu_event_init_powerpc
@@ -2441,7 +2441,6 @@
 #define qemu_log_flush qemu_log_flush_powerpc
 #define qemu_loglevel_mask qemu_loglevel_mask_powerpc
 #define qemu_log_vprintf qemu_log_vprintf_powerpc
-#define qemu_mutex_destroy qemu_mutex_destroy_powerpc
 #define qemu_mutex_lock_ramlist qemu_mutex_lock_ramlist_powerpc
 #define qemu_mutex_trylock qemu_mutex_trylock_powerpc
 #define qemu_mutex_unlock_ramlist qemu_mutex_unlock_ramlist_powerpc
@@ -2512,9 +2511,7 @@
 #define qemu_st_helpers qemu_st_helpers_powerpc
 #define qemu_strnlen qemu_strnlen_powerpc
 #define qemu_strsep qemu_strsep_powerpc
-#define qemu_tcg_cpu_thread_fn qemu_tcg_cpu_thread_fn_powerpc
 #define qemu_tcg_init_vcpu qemu_tcg_init_vcpu_powerpc
-#define qemu_thread_exit qemu_thread_exit_powerpc
 #define qemu_try_memalign qemu_try_memalign_powerpc
 #define qentry_destroy qentry_destroy_powerpc
 #define qerror_human qerror_human_powerpc
@@ -2807,7 +2804,6 @@
 #define tb_phys_invalidate tb_phys_invalidate_powerpc
 #define tb_reset_jump tb_reset_jump_powerpc
 #define tb_set_jmp_target tb_set_jmp_target_powerpc
-#define tb_set_jmp_target1 tb_set_jmp_target1_powerpc
 #define tcg_accel_class_init tcg_accel_class_init_powerpc
 #define tcg_accel_type tcg_accel_type_powerpc
 #define tcg_add_param_i32 tcg_add_param_i32_powerpc
@@ -2944,6 +2940,7 @@
 #define tcg_init tcg_init_powerpc
 #define tcg_invert_cond tcg_invert_cond_powerpc
 #define tcg_la_bb_end tcg_la_bb_end_powerpc
+#define tcg_la_br_end tcg_la_br_end_powerpc
 #define tcg_la_func_end tcg_la_func_end_powerpc
 #define tcg_liveness_analysis tcg_liveness_analysis_powerpc
 #define tcg_malloc tcg_malloc_powerpc
@@ -3014,8 +3011,6 @@
 #define tcg_reg_alloc_op tcg_reg_alloc_op_powerpc
 #define tcg_reg_alloc_start tcg_reg_alloc_start_powerpc
 #define tcg_reg_free tcg_reg_free_powerpc
-#define tcg_register_jit tcg_register_jit_powerpc
-#define tcg_register_jit_int tcg_register_jit_int_powerpc
 #define tcg_reg_sync tcg_reg_sync_powerpc
 #define tcg_set_frame tcg_set_frame_powerpc
 #define tcg_set_nop tcg_set_nop_powerpc

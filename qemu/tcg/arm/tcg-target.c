@@ -56,8 +56,8 @@ static int arm_arch = __ARM_ARCH;
 #define use_armv6_instructions  (__ARM_ARCH >= 6 || arm_arch >= 6)
 #define use_armv7_instructions  (__ARM_ARCH >= 7 || arm_arch >= 7)
 
-#ifndef use_idiv_instructions
-bool use_idiv_instructions;
+#ifndef __ARM_ARCH_EXT_IDIV__
+bool use_idiv_instructions_rt;
 #endif
 
 /* ??? Ought to think about changing CONFIG_SOFTMMU to always defined.  */
@@ -1981,10 +1981,10 @@ static void tcg_target_init(TCGContext *s)
 {
     /* Only probe for the platform and capabilities if we havn't already
        determined maximum values at compile time.  */
-#ifndef use_idiv_instructions
+#ifndef __ARM_ARCH_EXT_IDIV__
     {
         unsigned long hwcap = qemu_getauxval(AT_HWCAP);
-        use_idiv_instructions = (hwcap & HWCAP_ARM_IDIVA) != 0;
+        use_idiv_instructions_rt = (hwcap & HWCAP_ARM_IDIVA) != 0;
     }
 #endif
     if (__ARM_ARCH < 7) {
@@ -2076,48 +2076,4 @@ static void tcg_target_qemu_prologue(TCGContext *s)
     tcg_out32(s, (COND_AL << 28) | 0x08bd8ff0);
 }
 
-typedef struct {
-    DebugFrameHeader h;
-    uint8_t fde_def_cfa[4];
-    uint8_t fde_reg_ofs[18];
-} DebugFrame;
-
 #define ELF_HOST_MACHINE EM_ARM
-
-/* We're expecting a 2 byte uleb128 encoded value.  */
-QEMU_BUILD_BUG_ON(FRAME_SIZE >= (1 << 14));
-
-static const DebugFrame debug_frame = {
-    .h.cie.len = sizeof(DebugFrameCIE)-4, /* length after .len member */
-    .h.cie.id = -1,
-    .h.cie.version = 1,
-    .h.cie.code_align = 1,
-    .h.cie.data_align = 0x7c,             /* sleb128 -4 */
-    .h.cie.return_column = 14,
-
-    /* Total FDE size does not include the "len" member.  */
-    .h.fde.len = sizeof(DebugFrame) - offsetof(DebugFrame, h.fde.cie_offset),
-
-    .fde_def_cfa = {
-        12, 13,                         /* DW_CFA_def_cfa sp, ... */
-        (FRAME_SIZE & 0x7f) | 0x80,     /* ... uleb128 FRAME_SIZE */
-        (FRAME_SIZE >> 7)
-    },
-    .fde_reg_ofs = {
-        /* The following must match the stmdb in the prologue.  */
-        0x8e, 1,                        /* DW_CFA_offset, lr, -4 */
-        0x8b, 2,                        /* DW_CFA_offset, r11, -8 */
-        0x8a, 3,                        /* DW_CFA_offset, r10, -12 */
-        0x89, 4,                        /* DW_CFA_offset, r9, -16 */
-        0x88, 5,                        /* DW_CFA_offset, r8, -20 */
-        0x87, 6,                        /* DW_CFA_offset, r7, -24 */
-        0x86, 7,                        /* DW_CFA_offset, r6, -28 */
-        0x85, 8,                        /* DW_CFA_offset, r5, -32 */
-        0x84, 9,                        /* DW_CFA_offset, r4, -36 */
-    }
-};
-
-void tcg_register_jit(void *buf, size_t buf_size)
-{
-    tcg_register_jit_int(buf, buf_size, &debug_frame, sizeof(debug_frame));
-}

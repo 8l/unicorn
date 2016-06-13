@@ -945,14 +945,16 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
 #else
 void helper_syscall(CPUX86State *env, int next_eip_addend)
 {
-    // Unicorn: call interrupt callback if registered
-    struct uc_struct *uc = env->uc;
-    if (uc->hook_syscall_idx) {
-        ((uc_cb_insn_syscall_t)uc->hook_callbacks[uc->hook_syscall_idx].callback)(
-            uc, uc->hook_callbacks[uc->hook_syscall_idx].user_data);
+    // Unicorn: call registered syscall hooks
+    struct hook *hook;
+    HOOK_FOREACH(env->uc, hook, UC_HOOK_INSN) {
+        if (!HOOK_BOUND_CHECK(hook, env->eip))
+            continue;
+        if (hook->insn == UC_X86_INS_SYSCALL)
+            ((uc_cb_insn_syscall_t)hook->callback)(env->uc, hook->user_data);
     }
-    env->eip += next_eip_addend;
 
+    env->eip += next_eip_addend;
     return;
 
     int selector;
@@ -2301,8 +2303,20 @@ void helper_lret_protected(CPUX86State *env, int shift, int addend)
     helper_ret_protected(env, shift, 0, addend);
 }
 
-void helper_sysenter(CPUX86State *env)
+void helper_sysenter(CPUX86State *env, int next_eip_addend)
 {
+    // Unicorn: call registered SYSENTER hooks
+    struct hook *hook;
+    HOOK_FOREACH(env->uc, hook, UC_HOOK_INSN) {
+        if (!HOOK_BOUND_CHECK(hook, env->eip))
+            continue;
+        if (hook->insn == UC_X86_INS_SYSENTER)
+            ((uc_cb_insn_syscall_t)hook->callback)(env->uc, hook->user_data);
+    }
+
+    env->eip += next_eip_addend;
+    return;
+
     if (env->sysenter_cs == 0) {
         raise_exception_err(env, EXCP0D_GPF, 0);
     }
@@ -2542,7 +2556,6 @@ void helper_verw(CPUX86State *env, target_ulong selector1)
     CC_SRC = eflags | CC_Z;
 }
 
-#if defined(CONFIG_USER_ONLY)
 void cpu_x86_load_seg(CPUX86State *env, int seg_reg, int selector)
 {
     if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK)) {
@@ -2556,7 +2569,6 @@ void cpu_x86_load_seg(CPUX86State *env, int seg_reg, int selector)
         helper_load_seg(env, seg_reg, selector);
     }
 }
-#endif
 
 /* check if Port I/O is allowed in TSS */
 static inline void check_io(CPUX86State *env, int addr, int size)

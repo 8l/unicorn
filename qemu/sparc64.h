@@ -1,6 +1,9 @@
 /* Autogen header for Unicorn Engine - DONOT MODIFY */
 #ifndef UNICORN_AUTOGEN_SPARC64_H
 #define UNICORN_AUTOGEN_SPARC64_H
+#define aarch64_tb_set_jmp_target aarch64_tb_set_jmp_target_sparc64
+#define use_idiv_instructions_rt use_idiv_instructions_rt_sparc64
+#define tcg_target_deposit_valid tcg_target_deposit_valid_sparc64
 #define helper_power_down helper_power_down_sparc64
 #define check_exit_request check_exit_request_sparc64
 #define address_space_unregister address_space_unregister_sparc64
@@ -8,6 +11,7 @@
 #define phys_mem_clean phys_mem_clean_sparc64
 #define tb_cleanup tb_cleanup_sparc64
 #define memory_map memory_map_sparc64
+#define memory_map_ptr memory_map_ptr_sparc64
 #define memory_unmap memory_unmap_sparc64
 #define memory_free memory_free_sparc64
 #define helper_raise_exception helper_raise_exception_sparc64
@@ -2254,7 +2258,6 @@
 #define parse_value parse_value_sparc64
 #define par_write par_write_sparc64
 #define patch_reloc patch_reloc_sparc64
-#define pause_all_vcpus pause_all_vcpus_sparc64
 #define phys_map_node_alloc phys_map_node_alloc_sparc64
 #define phys_map_node_reserve phys_map_node_reserve_sparc64
 #define phys_mem_alloc phys_mem_alloc_sparc64
@@ -2413,9 +2416,6 @@
 #define qemu_clock_get_us qemu_clock_get_us_sparc64
 #define qemu_clock_ptr qemu_clock_ptr_sparc64
 #define qemu_clocks qemu_clocks_sparc64
-#define qemu_cond_destroy qemu_cond_destroy_sparc64
-#define qemu_cpu_is_self qemu_cpu_is_self_sparc64
-#define qemu_cpu_kick_thread qemu_cpu_kick_thread_sparc64
 #define qemu_daemon qemu_daemon_sparc64
 #define qemu_event_destroy qemu_event_destroy_sparc64
 #define qemu_event_init qemu_event_init_sparc64
@@ -2441,7 +2441,6 @@
 #define qemu_log_flush qemu_log_flush_sparc64
 #define qemu_loglevel_mask qemu_loglevel_mask_sparc64
 #define qemu_log_vprintf qemu_log_vprintf_sparc64
-#define qemu_mutex_destroy qemu_mutex_destroy_sparc64
 #define qemu_mutex_lock_ramlist qemu_mutex_lock_ramlist_sparc64
 #define qemu_mutex_trylock qemu_mutex_trylock_sparc64
 #define qemu_mutex_unlock_ramlist qemu_mutex_unlock_ramlist_sparc64
@@ -2512,9 +2511,7 @@
 #define qemu_st_helpers qemu_st_helpers_sparc64
 #define qemu_strnlen qemu_strnlen_sparc64
 #define qemu_strsep qemu_strsep_sparc64
-#define qemu_tcg_cpu_thread_fn qemu_tcg_cpu_thread_fn_sparc64
 #define qemu_tcg_init_vcpu qemu_tcg_init_vcpu_sparc64
-#define qemu_thread_exit qemu_thread_exit_sparc64
 #define qemu_try_memalign qemu_try_memalign_sparc64
 #define qentry_destroy qentry_destroy_sparc64
 #define qerror_human qerror_human_sparc64
@@ -2807,7 +2804,6 @@
 #define tb_phys_invalidate tb_phys_invalidate_sparc64
 #define tb_reset_jump tb_reset_jump_sparc64
 #define tb_set_jmp_target tb_set_jmp_target_sparc64
-#define tb_set_jmp_target1 tb_set_jmp_target1_sparc64
 #define tcg_accel_class_init tcg_accel_class_init_sparc64
 #define tcg_accel_type tcg_accel_type_sparc64
 #define tcg_add_param_i32 tcg_add_param_i32_sparc64
@@ -2944,6 +2940,7 @@
 #define tcg_init tcg_init_sparc64
 #define tcg_invert_cond tcg_invert_cond_sparc64
 #define tcg_la_bb_end tcg_la_bb_end_sparc64
+#define tcg_la_br_end tcg_la_br_end_sparc64
 #define tcg_la_func_end tcg_la_func_end_sparc64
 #define tcg_liveness_analysis tcg_liveness_analysis_sparc64
 #define tcg_malloc tcg_malloc_sparc64
@@ -3014,8 +3011,6 @@
 #define tcg_reg_alloc_op tcg_reg_alloc_op_sparc64
 #define tcg_reg_alloc_start tcg_reg_alloc_start_sparc64
 #define tcg_reg_free tcg_reg_free_sparc64
-#define tcg_register_jit tcg_register_jit_sparc64
-#define tcg_register_jit_int tcg_register_jit_int_sparc64
 #define tcg_reg_sync tcg_reg_sync_sparc64
 #define tcg_set_frame tcg_set_frame_sparc64
 #define tcg_set_nop tcg_set_nop_sparc64

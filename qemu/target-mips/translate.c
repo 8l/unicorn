@@ -11322,7 +11322,7 @@ static int decode_extended_mips16_opc (CPUMIPSState *env, DisasContext *ctx)
     return 4;
 }
 
-static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_slot)
+static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx, bool *insn_need_patch)
 {
     TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
     TCGv **cpu_gpr = (TCGv **)tcg_ctx->cpu_gpr;
@@ -11343,15 +11343,11 @@ static int decode_mips16_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_s
     n_bytes = 2;
 
     // Unicorn: trace this instruction on request
-    if (!is_bc_slot && env->uc->hook_insn) {
-        struct hook_struct *trace = hook_find(env->uc, UC_HOOK_CODE, ctx->pc);
-        if (trace)
-            gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, trace->callback, env->uc, ctx->pc, trace->user_data);
-        // if requested to emulate only some instructions, check if
-        // we need to exit immediately
-        if (env->uc->emu_count > 0) {
-            check_exit_request(tcg_ctx);
-        }
+    if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_CODE, ctx->pc)) {
+        gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_CODE_IDX, env->uc, ctx->pc);
+        *insn_need_patch = true;
+        // the callback might want to stop emulation immediately
+        check_exit_request(tcg_ctx);
     }
 
     switch (op) {
@@ -13928,7 +13924,7 @@ static void decode_micromips32_opc (CPUMIPSState *env, DisasContext *ctx,
     }
 }
 
-static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_slot)
+static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx, bool *insn_need_patch)
 {
     TCGContext *tcg_ctx = env->uc->tcg_ctx;
     TCGv **cpu_gpr = (TCGv **)tcg_ctx->cpu_gpr;
@@ -13943,15 +13939,11 @@ static int decode_micromips_opc (CPUMIPSState *env, DisasContext *ctx, bool is_b
     }
 
     // Unicorn: trace this instruction on request
-    if (!is_bc_slot && env->uc->hook_insn) {
-        struct hook_struct *trace = hook_find(env->uc, UC_HOOK_CODE, ctx->pc);
-        if (trace)
-            gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, trace->callback, env->uc, ctx->pc, trace->user_data);
-        // if requested to emulate only some instructions, check if
-        // we need to exit immediately
-        if (env->uc->emu_count > 0) {
-            check_exit_request(tcg_ctx);
-        }
+    if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_CODE, ctx->pc)) {
+        gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_CODE_IDX, env->uc, ctx->pc);
+        *insn_need_patch = true;
+        // the callback might want to stop emulation immediately
+        check_exit_request(tcg_ctx);
     }
 
     op = (ctx->opcode >> 10) & 0x3f;
@@ -18503,7 +18495,20 @@ static void gen_msa(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_slot)
+// Unicorn: trace this instruction on request
+static void hook_insn(CPUMIPSState *env, DisasContext *ctx, bool *insn_need_patch, int *insn_patch_offset, int offset_value)
+{
+    TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
+    if (HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_CODE, ctx->pc)) {
+        gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_CODE_IDX, env->uc, ctx->pc);
+        *insn_need_patch = true;
+        // the callback might want to stop emulation immediately
+        check_exit_request(tcg_ctx);
+        *insn_patch_offset = offset_value;
+    }
+}
+
+static void decode_opc (CPUMIPSState *env, DisasContext *ctx, bool *insn_need_patch, int *insn_patch_offset)
 {
     TCGContext *tcg_ctx = ctx->uc->tcg_ctx;
 #if defined(TARGET_MIPS64)
@@ -18514,24 +18519,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_slot)
     uint32_t op, op1;
     int16_t imm;
 
-
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
         env->CP0_BadVAddr = ctx->pc;
         generate_exception_err(ctx, EXCP_AdEL, EXCP_INST_NOTAVAIL);
         return;
-    }
-
-    // Unicorn: trace this instruction on request
-    if (!is_bc_slot && env->uc->hook_insn) {
-        struct hook_struct *trace = hook_find(env->uc, UC_HOOK_CODE, ctx->pc);
-        if (trace)
-            gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, trace->callback, env->uc, ctx->pc, trace->user_data);
-        // if requested to emulate only some instructions, check if
-        // we need to exit immediately
-        if (env->uc->emu_count > 0) {
-            check_exit_request(tcg_ctx);
-        }
     }
 
     /* Handle blikely not taken case */
@@ -18543,6 +18535,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx, bool is_bc_slot)
         tcg_gen_movi_i32(tcg_ctx, tcg_ctx->hflags, ctx->hflags & ~MIPS_HFLAG_BMASK);
         gen_goto_tb(ctx, 1, ctx->pc + 4);
         gen_set_label(tcg_ctx, l1);
+        hook_insn(env, ctx, insn_need_patch, insn_patch_offset, 14);
+    } else {
+        hook_insn(env, ctx, insn_need_patch, insn_patch_offset, 1);
     }
 
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
@@ -19171,7 +19166,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     int max_insns;
     int insn_bytes;
     int is_slot = 0;
-    bool is_bc_slot = false;
     TCGContext *tcg_ctx = env->uc->tcg_ctx;
     TCGArg *save_opparam_ptr = NULL;
     bool block_full = false;
@@ -19220,13 +19214,10 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     // Unicorn: trace this block on request
     // Only hook this block if it is not broken from previous translation due to
     // full translation cache
-    if (env->uc->hook_block && !env->uc->block_full) {
-        struct hook_struct *trace = hook_find(env->uc, UC_HOOK_BLOCK, pc_start);
-        if (trace) {
-            // save block address to see if we need to patch block size later
-            env->uc->block_addr = pc_start;
-            gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, trace->callback, env->uc, pc_start, trace->user_data);
-        }
+    if (!env->uc->block_full && HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_BLOCK, pc_start)) {
+        // save block address to see if we need to patch block size later
+        env->uc->block_addr = pc_start;
+        gen_uc_tracecode(tcg_ctx, 0xf8f8f8f8, UC_HOOK_BLOCK_IDX, env->uc, pc_start);
     }
 
     gen_tb_start(tcg_ctx);
@@ -19268,23 +19259,25 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             ctx.bstate = BS_EXCP;
             break;
         } else {
+            bool insn_need_patch = false;
+            int insn_patch_offset = 1;
+
             // Unicorn: save param buffer
-            if (env->uc->hook_insn)
+            if (HOOK_EXISTS(env->uc, UC_HOOK_CODE))
                 save_opparam_ptr = tcg_ctx->gen_opparam_ptr;
 
             is_slot = ctx.hflags & MIPS_HFLAG_BMASK;
-            is_bc_slot = (is_slot & MIPS_HFLAG_BMASK_BASE) == MIPS_HFLAG_BC;
 
             if (!(ctx.hflags & MIPS_HFLAG_M16)) {
                 ctx.opcode = cpu_ldl_code(env, ctx.pc);
                 insn_bytes = 4;
-                decode_opc(env, &ctx, is_bc_slot);
+                decode_opc(env, &ctx, &insn_need_patch, &insn_patch_offset);
             } else if (ctx.insn_flags & ASE_MICROMIPS) {
                 ctx.opcode = cpu_lduw_code(env, ctx.pc);
-                insn_bytes = decode_micromips_opc(env, &ctx, is_bc_slot);
+                insn_bytes = decode_micromips_opc(env, &ctx, &insn_need_patch);
             } else if (ctx.insn_flags & ASE_MIPS16) {
                 ctx.opcode = cpu_lduw_code(env, ctx.pc);
-                insn_bytes = decode_mips16_opc(env, &ctx, is_bc_slot);
+                insn_bytes = decode_mips16_opc(env, &ctx, &insn_need_patch);
             } else {
                 generate_exception(&ctx, EXCP_RI);
                 ctx.bstate = BS_STOP;
@@ -19292,8 +19285,15 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             }
 
             // Unicorn: patch the callback for the instruction size
-            if (!is_bc_slot && env->uc->hook_insn)
-                *(save_opparam_ptr + 1) = insn_bytes;
+            if (insn_need_patch) {
+                /*
+                   int i;
+                   for (i = 0; i < 30; i++)
+                   printf("[%u] = %x\n", i, *(save_opparam_ptr + i));
+                   printf("\n");
+                 */
+                *(save_opparam_ptr + insn_patch_offset) = insn_bytes;
+            }
         }
 
         if (ctx.hflags & MIPS_HFLAG_BMASK) {

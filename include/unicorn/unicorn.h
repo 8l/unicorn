@@ -9,6 +9,15 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#ifdef _MSC_VER
+#ifndef __cplusplus
+typedef unsigned char bool;
+#define false 0
+#define true 1
+#endif
+#else
+#include <stdbool.h>
+#endif
 #include <stdarg.h>
 #if defined(UNICORN_HAS_OSXKERNEL)
 #include <libkern/libkern.h>
@@ -16,8 +25,6 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #endif
-
-#include "platform.h"
 
 struct uc_struct;
 typedef struct uc_struct uc_engine;
@@ -57,11 +64,13 @@ typedef size_t uc_hook;
 #endif
 
 // Unicorn API version
-#define UC_API_MAJOR 0
-#define UC_API_MINOR 9
+#define UC_API_MAJOR 1
+#define UC_API_MINOR 0
 
-// Macro to create combined version which can be compared to
-// result of uc_version() API.
+/*
+  Macro to create combined version which can be compared to
+  result of uc_version() API.
+*/
 #define UC_MAKE_VERSION(major, minor) ((major << 8) + minor)
 
 // Scales to calculate timeout on microsecond unit
@@ -76,7 +85,7 @@ typedef enum uc_arch {
     UC_ARCH_ARM64,      // ARM-64, also called AArch64
     UC_ARCH_MIPS,       // Mips architecture
     UC_ARCH_X86,        // X86 architecture (including x86 & x86-64)
-    UC_ARCH_PPC,        // PowerPC architecture
+    UC_ARCH_PPC,        // PowerPC architecture (currently unsupported)
     UC_ARCH_SPARC,      // Sparc architecture
     UC_ARCH_M68K,       // M68K architecture
     UC_ARCH_MAX,
@@ -84,22 +93,32 @@ typedef enum uc_arch {
 
 // Mode type
 typedef enum uc_mode {
-    UC_MODE_LITTLE_ENDIAN = 0,  // little-endian mode (default mode)
-    UC_MODE_ARM = 0,    // 32-bit ARM
-    UC_MODE_16 = 1 << 1,    // 16-bit mode (X86)
-    UC_MODE_32 = 1 << 2,    // 32-bit mode (X86)
-    UC_MODE_64 = 1 << 3,    // 64-bit mode (X86, PPC)
-    UC_MODE_THUMB = 1 << 4, // ARM's Thumb mode, including Thumb-2
-    UC_MODE_MCLASS = 1 << 5,    // ARM's Cortex-M series
-    UC_MODE_V8 = 1 << 6,    // ARMv8 A32 encodings for ARM
-    UC_MODE_MICRO = 1 << 4, // MicroMips mode (MIPS)
-    UC_MODE_MIPS3 = 1 << 5, // Mips III ISA
-    UC_MODE_MIPS32R6 = 1 << 6, // Mips32r6 ISA
-    UC_MODE_V9 = 1 << 4, // SparcV9 mode (Sparc)
-    UC_MODE_QPX = 1 << 4, // Quad Processing eXtensions mode (PPC)
-    UC_MODE_BIG_ENDIAN = 1 << 30,   // big-endian mode
-    UC_MODE_MIPS32 = UC_MODE_32,    // Mips32 ISA (Mips)
-    UC_MODE_MIPS64 = UC_MODE_64,    // Mips64 ISA (Mips)
+    UC_MODE_LITTLE_ENDIAN = 0,    // little-endian mode (default mode)
+    UC_MODE_BIG_ENDIAN = 1 << 30, // big-endian mode
+    // arm / arm64
+    UC_MODE_ARM = 0,              // ARM mode
+    UC_MODE_THUMB = 1 << 4,       // THUMB mode (including Thumb-2)
+    UC_MODE_MCLASS = 1 << 5,      // ARM's Cortex-M series (currently unsupported)
+    UC_MODE_V8 = 1 << 6,          // ARMv8 A32 encodings for ARM (currently unsupported)
+    // mips
+    UC_MODE_MICRO = 1 << 4,       // MicroMips mode (currently unsupported)
+    UC_MODE_MIPS3 = 1 << 5,       // Mips III ISA (currently unsupported)
+    UC_MODE_MIPS32R6 = 1 << 6,    // Mips32r6 ISA (currently unsupported)
+    UC_MODE_MIPS32 = 1 << 2,      // Mips32 ISA
+    UC_MODE_MIPS64 = 1 << 3,      // Mips64 ISA
+    // x86 / x64
+    UC_MODE_16 = 1 << 1,          // 16-bit mode
+    UC_MODE_32 = 1 << 2,          // 32-bit mode
+    UC_MODE_64 = 1 << 3,          // 64-bit mode
+    // ppc 
+    UC_MODE_PPC32 = 1 << 2,       // 32-bit mode (currently unsupported)
+    UC_MODE_PPC64 = 1 << 3,       // 64-bit mode (currently unsupported)
+    UC_MODE_QPX = 1 << 4,         // Quad Processing eXtensions mode (currently unsupported)
+    // sparc
+    UC_MODE_SPARC32 = 1 << 2,     // 32-bit mode
+    UC_MODE_SPARC64 = 1 << 3,     // 64-bit mode
+    UC_MODE_V9 = 1 << 4,          // SparcV9 mode (currently unsupported)
+    // m68k
 } uc_mode;
 
 // All type of errors encountered by Unicorn API.
@@ -129,27 +148,39 @@ typedef enum uc_err {
 } uc_err;
 
 
-// Callback function for tracing code (UC_HOOK_CODE & UC_HOOK_BLOCK)
-// @address: address where the code is being executed
-// @size: size of machine instruction(s) being executed, or 0 when size is unknown
-// @user_data: user data passed to tracing APIs.
+/*
+  Callback function for tracing code (UC_HOOK_CODE & UC_HOOK_BLOCK)
+
+  @address: address where the code is being executed
+  @size: size of machine instruction(s) being executed, or 0 when size is unknown
+  @user_data: user data passed to tracing APIs.
+*/
 typedef void (*uc_cb_hookcode_t)(uc_engine *uc, uint64_t address, uint32_t size, void *user_data);
 
-// Callback function for tracing interrupts (for uc_hook_intr())
-// @intno: interrupt number
-// @user_data: user data passed to tracing APIs.
+/*
+  Callback function for tracing interrupts (for uc_hook_intr())
+
+  @intno: interrupt number
+  @user_data: user data passed to tracing APIs.
+*/
 typedef void (*uc_cb_hookintr_t)(uc_engine *uc, uint32_t intno, void *user_data);
 
-// Callback function for tracing IN instruction of X86
-// @port: port number
-// @size: data size (1/2/4) to be read from this port
-// @user_data: user data passed to tracing APIs.
+/*
+  Callback function for tracing IN instruction of X86
+
+  @port: port number
+  @size: data size (1/2/4) to be read from this port
+  @user_data: user data passed to tracing APIs.
+*/
 typedef uint32_t (*uc_cb_insn_in_t)(uc_engine *uc, uint32_t port, int size, void *user_data);
 
-// x86's handler for OUT
-// @port: port number
-// @size: data size (1/2/4) to be written to this port
-// @value: data value to be written to this port
+/*
+  Callback function for OUT instruction of X86
+
+  @port: port number
+  @size: data size (1/2/4) to be written to this port
+  @value: data value to be written to this port
+*/
 typedef void (*uc_cb_insn_out_t)(uc_engine *uc, uint32_t port, int size, uint32_t value, void *user_data);
 
 // All type of memory accesses for UC_HOOK_MEM_*
@@ -194,27 +225,52 @@ typedef enum uc_hook_type {
 #define UC_HOOK_MEM_FETCH_INVALID (UC_HOOK_MEM_FETCH_PROT + UC_HOOK_MEM_FETCH_UNMAPPED)
 // hook type for all events of illegal memory access
 #define UC_HOOK_MEM_INVALID (UC_HOOK_MEM_UNMAPPED + UC_HOOK_MEM_PROT)
+// hook type for all events of valid memory access
+#define UC_HOOK_MEM_VALID (UC_HOOK_MEM_READ + UC_HOOK_MEM_WRITE + UC_HOOK_MEM_FETCH)
 
-// Callback function for hooking memory (UC_MEM_READ, UC_MEM_WRITE & UC_MEM_FETCH)
-// @type: this memory is being READ, or WRITE
-// @address: address where the code is being executed
-// @size: size of data being read or written
-// @value: value of data being written to memory, or irrelevant if type = READ.
-// @user_data: user data passed to tracing APIs
+/*
+  Callback function for hooking memory (UC_MEM_READ, UC_MEM_WRITE & UC_MEM_FETCH)
+
+  @type: this memory is being READ, or WRITE
+  @address: address where the code is being executed
+  @size: size of data being read or written
+  @value: value of data being written to memory, or irrelevant if type = READ.
+  @user_data: user data passed to tracing APIs
+*/
 typedef void (*uc_cb_hookmem_t)(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data);
 
-// Callback function for handling invalid memory access events (UC_MEM_*_UNMAPPED and
-//   UC_MEM_*PROT events)
-// @type: this memory is being READ, or WRITE
-// @address: address where the code is being executed
-// @size: size of data being read or written
-// @value: value of data being written to memory, or irrelevant if type = READ.
-// @user_data: user data passed to tracing APIs
-// @return: return true to continue, or false to stop program (due to invalid memory).
+/*
+  Callback function for handling invalid memory access events (UC_MEM_*_UNMAPPED and
+    UC_MEM_*PROT events)
+
+  @type: this memory is being READ, or WRITE
+  @address: address where the code is being executed
+  @size: size of data being read or written
+  @value: value of data being written to memory, or irrelevant if type = READ.
+  @user_data: user data passed to tracing APIs
+
+  @return: return true to continue, or false to stop program (due to invalid memory).
+*/
 typedef bool (*uc_cb_eventmem_t)(uc_engine *uc, uc_mem_type type,
         uint64_t address, int size, int64_t value, void *user_data);
 
+/*
+  Memory region mapped by uc_mem_map() and uc_mem_map_ptr()
+  Retrieve the list of memory regions with uc_mem_regions()
+*/
+typedef struct uc_mem_region {
+    uint64_t begin; // begin address of the region (inclusive)
+    uint64_t end;   // end address of the region (inclusive)
+    uint32_t perms; // memory permissions of the region
+} uc_mem_region;
+
+// All type of queries for uc_query() API.
+typedef enum uc_query_type {
+    // Dynamically query current hardware mode.
+    UC_QUERY_MODE = 1,
+    UC_QUERY_PAGE_SIZE,
+} uc_query_type;
 
 /*
  Return combined API version & major and minor version numbers.
@@ -256,7 +312,7 @@ bool uc_arch_supported(uc_arch arch);
  @uc: pointer to uc_engine, which will be updated at return time
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_open(uc_arch arch, uc_mode mode, uc_engine **uc);
@@ -271,10 +327,23 @@ uc_err uc_open(uc_arch arch, uc_mode mode, uc_engine **uc);
  @uc: pointer to a handle returned by uc_open()
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_close(uc_engine *uc);
+
+/*
+ Query internal status of engine.
+
+ @uc: handle returned by uc_open()
+ @type: query type. See uc_query_type
+
+ @result: save the internal status queried
+
+ @return: error code of uc_err enum type (UC_ERR_*, see above)
+*/
+UNICORN_EXPORT
+uc_err uc_query(uc_engine *uc, uc_query_type type, size_t *result);
 
 /*
  Report the last error number when some API function fail.
@@ -293,7 +362,7 @@ uc_err uc_errno(uc_engine *uc);
  @code: error code (see UC_ERR_* above)
 
  @return: returns a pointer to a string that describes the error code
- passed in the argument @code
+   passed in the argument @code
  */
 UNICORN_EXPORT
 const char *uc_strerror(uc_err code);
@@ -306,7 +375,7 @@ const char *uc_strerror(uc_err code);
  @value:  pointer to the value that will set to register @regid
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_reg_write(uc_engine *uc, int regid, const void *value);
@@ -319,10 +388,38 @@ uc_err uc_reg_write(uc_engine *uc, int regid, const void *value);
  @value:  pointer to a variable storing the register value.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_reg_read(uc_engine *uc, int regid, void *value);
+
+/*
+ Write multiple register values.
+
+ @uc: handle returned by uc_open()
+ @rges:  array of register IDs to store
+ @value: pointer to array of register values
+ @count: length of both *regs and *vals
+
+ @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
+   for detailed error).
+*/
+UNICORN_EXPORT
+uc_err uc_reg_write_batch(uc_engine *uc, int *regs, void *const *vals, int count);
+
+/*
+ Read multiple register values.
+
+ @uc: handle returned by uc_open()
+ @rges:  array of register IDs to retrieve
+ @value: pointer to array of values to hold registers
+ @count: length of both *regs and *vals
+
+ @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
+   for detailed error).
+*/
+UNICORN_EXPORT
+uc_err uc_reg_read_batch(uc_engine *uc, int *regs, void **vals, int count);
 
 /*
  Write to a range of bytes in memory.
@@ -335,7 +432,7 @@ uc_err uc_reg_read(uc_engine *uc, int regid, void *value);
  NOTE: @bytes must be big enough to contain @size bytes.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_mem_write(uc_engine *uc, uint64_t address, const void *bytes, size_t size);
@@ -351,7 +448,7 @@ uc_err uc_mem_write(uc_engine *uc, uint64_t address, const void *bytes, size_t s
  NOTE: @bytes must be big enough to contain @size bytes.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_mem_read(uc_engine *uc, uint64_t address, void *bytes, size_t size);
@@ -368,7 +465,7 @@ uc_err uc_mem_read(uc_engine *uc, uint64_t address, void *bytes, size_t size);
         we will emulate all the code available, until the code is finished.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_emu_start(uc_engine *uc, uint64_t begin, uint64_t until, uint64_t timeout, size_t count);
@@ -381,7 +478,7 @@ uc_err uc_emu_start(uc_engine *uc, uint64_t begin, uint64_t until, uint64_t time
  @uc: handle returned by uc_open()
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_emu_stop(uc_engine *uc);
@@ -396,13 +493,19 @@ uc_err uc_emu_stop(uc_engine *uc);
  @callback: callback to be run when instruction is hit
  @user_data: user-defined data. This will be passed to callback function in its
       last argument @user_data
+ @begin: start address of the area where the callback is effect (inclusive)
+ @end: end address of the area where the callback is effect (inclusive)
+   NOTE 1: the callback is called only if related address is in range [@begin, @end]
+   NOTE 2: if @begin > @end, callback is called whenever this hook type is triggered
  @...: variable arguments (depending on @type)
+   NOTE: if @type = UC_HOOK_INSN, this is the instruction ID (ex: UC_X86_INS_OUT)
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
-uc_err uc_hook_add(uc_engine *uc, uc_hook *hh, int type, void *callback, void *user_data, ...);
+uc_err uc_hook_add(uc_engine *uc, uc_hook *hh, int type, void *callback,
+        void *user_data, uint64_t begin, uint64_t end, ...);
 
 /*
  Unregister (remove) a hook callback.
@@ -414,7 +517,7 @@ uc_err uc_hook_add(uc_engine *uc, uc_hook *hh, int type, void *callback, void *u
  @hh: handle returned by uc_hook_add()
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_hook_del(uc_engine *uc, uc_hook hh);
@@ -441,23 +544,45 @@ typedef enum uc_prot {
     or this will return with UC_ERR_ARG error.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_mem_map(uc_engine *uc, uint64_t address, size_t size, uint32_t perms);
 
 /*
+ Map existing host memory in for emulation.
+ This API adds a memory region that can be used by emulation.
+
+ @uc: handle returned by uc_open()
+ @address: starting address of the new memory region to be mapped in.
+    This address must be aligned to 4KB, or this will return with UC_ERR_ARG error.
+ @size: size of the new memory region to be mapped in.
+    This size must be multiple of 4KB, or this will return with UC_ERR_ARG error.
+ @perms: Permissions for the newly mapped region.
+    This must be some combination of UC_PROT_READ | UC_PROT_WRITE | UC_PROT_EXEC,
+    or this will return with UC_ERR_ARG error.
+ @ptr: pointer to host memory backing the newly mapped memory. This host memory is
+    expected to be an equal or larger size than provided, and be mapped with at
+    least PROT_READ | PROT_WRITE. If it is not, the resulting behavior is undefined.
+
+ @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
+   for detailed error).
+*/
+UNICORN_EXPORT
+uc_err uc_mem_map_ptr(uc_engine *uc, uint64_t address, size_t size, uint32_t perms, void *ptr);
+
+/*
  Unmap a region of emulation memory.
  This API deletes a memory mapping from the emulation memory space.
 
- @handle: handle returned by uc_open()
+ @uc: handle returned by uc_open()
  @address: starting address of the memory region to be unmapped.
     This address must be aligned to 4KB, or this will return with UC_ERR_ARG error.
  @size: size of the memory region to be modified.
     This size must be multiple of 4KB, or this will return with UC_ERR_ARG error.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_mem_unmap(uc_engine *uc, uint64_t address, size_t size);
@@ -466,7 +591,7 @@ uc_err uc_mem_unmap(uc_engine *uc, uint64_t address, size_t size);
  Set memory permissions for emulation memory.
  This API changes permissions on an existing memory region.
 
- @handle: handle returned by uc_open()
+ @uc: handle returned by uc_open()
  @address: starting address of the memory region to be modified.
     This address must be aligned to 4KB, or this will return with UC_ERR_ARG error.
  @size: size of the memory region to be modified.
@@ -476,10 +601,27 @@ uc_err uc_mem_unmap(uc_engine *uc, uint64_t address, size_t size);
     or this will return with UC_ERR_ARG error.
 
  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
- for detailed error).
+   for detailed error).
 */
 UNICORN_EXPORT
 uc_err uc_mem_protect(uc_engine *uc, uint64_t address, size_t size, uint32_t perms);
+
+/*
+ Retrieve all memory regions mapped by uc_mem_map() and uc_mem_map_ptr()
+ This API allocates memory for @regions, and user must free this memory later
+ by free() to avoid leaking memory.
+ NOTE: memory regions may be splitted by uc_mem_unmap()
+
+ @uc: handle returned by uc_open()
+ @regions: pointer to an array of uc_mem_region struct. This is allocated by
+   Unicorn, and must be freed by user later
+ @count: pointer to number of struct uc_mem_region contained in @regions
+
+ @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
+   for detailed error).
+*/
+UNICORN_EXPORT
+uc_err uc_mem_regions(uc_engine *uc, uc_mem_region **regions, uint32_t *count);
 
 #ifdef __cplusplus
 }

@@ -29,8 +29,8 @@
 
 static void error_exit(int err, const char *msg)
 {
-    // fprintf(stderr, "qemu: %s: %s\n", msg, strerror(err));
-    // abort();
+    fprintf(stderr, "qemu: %s: %s\n", msg, strerror(err));
+    abort();
 }
 
 void qemu_mutex_init(QemuMutex *mutex)
@@ -424,16 +424,6 @@ int qemu_thread_create(struct uc_struct *uc, QemuThread *thread, const char *nam
     pthread_attr_destroy(&attr);
 
     return 0;
-}
-
-void qemu_thread_get_self(struct uc_struct *uc, QemuThread *thread)
-{
-    thread->thread = pthread_self();
-}
-
-bool qemu_thread_is_self(QemuThread *thread)
-{
-   return pthread_equal(pthread_self(), thread->thread);
 }
 
 void qemu_thread_exit(struct uc_struct *uc, void *retval)

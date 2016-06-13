@@ -65,7 +65,7 @@ static const int tcg_target_reg_alloc_order[] = {
 
 static const int tcg_target_call_iarg_regs[] = {
 #if TCG_TARGET_REG_BITS == 64
-#if defined(_WIN64)
+#if (defined(_WIN64) || defined(__CYGWIN__))
     TCG_REG_RCX,
     TCG_REG_RDX,
 #else
@@ -1209,7 +1209,7 @@ static inline void tcg_out_tlb_load(TCGContext *s, TCGReg addrlo, TCGReg addrhi,
     tcg_out_mov(s, ttype, r1, addrlo);
 
     // Unicorn: fast path if hookmem is not enable
-    if (!s->uc->hook_mem_read && !s->uc->hook_mem_write)
+    if (!HOOK_EXISTS(s->uc, UC_HOOK_MEM_READ) && !HOOK_EXISTS(s->uc, UC_HOOK_MEM_WRITE))
         tcg_out_opc(s, OPC_JCC_long + JCC_JNE, 0, 0, 0);
     else
         tcg_out_opc(s, OPC_JMP_long, 0, 0, 0); /* slow_path */
@@ -2191,7 +2191,7 @@ static int tcg_target_callee_save_regs[] = {
 #if TCG_TARGET_REG_BITS == 64
     TCG_REG_RBP,
     TCG_REG_RBX,
-#if defined(_WIN64)
+#if (defined(_WIN64) || defined(__CYGWIN__))
     TCG_REG_RDI,
     TCG_REG_RSI,
 #endif
@@ -2316,7 +2316,7 @@ static void tcg_target_init(TCGContext *s)
     tcg_regset_set_reg(s->tcg_target_call_clobber_regs, TCG_REG_EDX);
     tcg_regset_set_reg(s->tcg_target_call_clobber_regs, TCG_REG_ECX);
     if (TCG_TARGET_REG_BITS == 64) {
-#if !defined(_WIN64)
+#if !(defined(_WIN64) || defined(__CYGWIN__))
         tcg_regset_set_reg(s->tcg_target_call_clobber_regs, TCG_REG_RDI);
         tcg_regset_set_reg(s->tcg_target_call_clobber_regs, TCG_REG_RSI);
 #endif
@@ -2331,79 +2331,3 @@ static void tcg_target_init(TCGContext *s)
 
     tcg_add_target_add_op_defs(s, x86_op_defs);
 }
-
-typedef struct {
-    DebugFrameHeader h;
-    uint8_t fde_def_cfa[4];
-    uint8_t fde_reg_ofs[14];
-} DebugFrame;
-
-/* We're expecting a 2 byte uleb128 encoded value.  */
-QEMU_BUILD_BUG_ON(FRAME_SIZE >= (1 << 14));
-
-#if !defined(__ELF__)
-    /* Host machine without ELF. */
-#elif TCG_TARGET_REG_BITS == 64
-#define ELF_HOST_MACHINE EM_X86_64
-static const DebugFrame debug_frame = {
-    .h.cie.len = sizeof(DebugFrameCIE)-4, /* length after .len member */
-    .h.cie.id = -1,
-    .h.cie.version = 1,
-    .h.cie.code_align = 1,
-    .h.cie.data_align = 0x78,             /* sleb128 -8 */
-    .h.cie.return_column = 16,
-
-    /* Total FDE size does not include the "len" member.  */
-    .h.fde.len = sizeof(DebugFrame) - offsetof(DebugFrame, h.fde.cie_offset),
-
-    .fde_def_cfa = {
-        12, 7,                          /* DW_CFA_def_cfa %rsp, ... */
-        (FRAME_SIZE & 0x7f) | 0x80,     /* ... uleb128 FRAME_SIZE */
-        (FRAME_SIZE >> 7)
-    },
-    .fde_reg_ofs = {
-        0x90, 1,                        /* DW_CFA_offset, %rip, -8 */
-        /* The following ordering must match tcg_target_callee_save_regs.  */
-        0x86, 2,                        /* DW_CFA_offset, %rbp, -16 */
-        0x83, 3,                        /* DW_CFA_offset, %rbx, -24 */
-        0x8c, 4,                        /* DW_CFA_offset, %r12, -32 */
-        0x8d, 5,                        /* DW_CFA_offset, %r13, -40 */
-        0x8e, 6,                        /* DW_CFA_offset, %r14, -48 */
-        0x8f, 7,                        /* DW_CFA_offset, %r15, -56 */
-    }
-};
-#else
-#define ELF_HOST_MACHINE EM_386
-static const DebugFrame debug_frame = {
-    .h.cie.len = sizeof(DebugFrameCIE)-4, /* length after .len member */
-    .h.cie.id = -1,
-    .h.cie.version = 1,
-    .h.cie.code_align = 1,
-    .h.cie.data_align = 0x7c,             /* sleb128 -4 */
-    .h.cie.return_column = 8,
-
-    /* Total FDE size does not include the "len" member.  */
-    .h.fde.len = sizeof(DebugFrame) - offsetof(DebugFrame, h.fde.cie_offset),
-
-    .fde_def_cfa = {
-        12, 4,                          /* DW_CFA_def_cfa %esp, ... */
-        (FRAME_SIZE & 0x7f) | 0x80,     /* ... uleb128 FRAME_SIZE */
-        (FRAME_SIZE >> 7)
-    },
-    .fde_reg_ofs = {
-        0x88, 1,                        /* DW_CFA_offset, %eip, -4 */
-        /* The following ordering must match tcg_target_callee_save_regs.  */
-        0x85, 2,                        /* DW_CFA_offset, %ebp, -8 */
-        0x83, 3,                        /* DW_CFA_offset, %ebx, -12 */
-        0x86, 4,                        /* DW_CFA_offset, %esi, -16 */
-        0x87, 5,                        /* DW_CFA_offset, %edi, -20 */
-    }
-};
-#endif
-
-#if defined(ELF_HOST_MACHINE)
-void tcg_register_jit(void *buf, size_t buf_size)
-{
-    tcg_register_jit_int(buf, buf_size, &debug_frame, sizeof(debug_frame));
-}
-#endif

@@ -63,8 +63,6 @@
 
 #include "uc_priv.h"
 
-#define USE_STATIC_CODE_GEN_BUFFER
-
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
 /* make various TB consistency checks */
@@ -179,7 +177,7 @@ static int cpu_gen_code(CPUArchState *env, TranslationBlock *tb, int *gen_code_s
     gen_intermediate_code(env, tb);
 
     // Unicorn: when tracing block, patch 1st operand for block size
-    if (env->uc->hook_block && env->uc->block_addr == tb->pc) {
+    if (env->uc->block_addr == tb->pc && HOOK_EXISTS_BOUNDED(env->uc, UC_HOOK_BLOCK, tb->pc)) {
         if (env->uc->block_full)    // block size is unknown
             *(s->gen_opparam_buf + 1) = 0;
         else
@@ -501,7 +499,7 @@ static inline PageDesc *page_find(struct uc_struct *uc, tb_page_addr_t index)
 # define MAX_CODE_GEN_BUFFER_SIZE  ((size_t)-1)
 #endif
 
-#define DEFAULT_CODE_GEN_BUFFER_SIZE_1 (32u * 1024 * 1024)
+#define DEFAULT_CODE_GEN_BUFFER_SIZE_1 (8 * 1024 * 1024)
 
 #define DEFAULT_CODE_GEN_BUFFER_SIZE \
   (DEFAULT_CODE_GEN_BUFFER_SIZE_1 < MAX_CODE_GEN_BUFFER_SIZE \
@@ -520,7 +518,7 @@ static inline size_t size_code_gen_buffer(struct uc_struct *uc, size_t tb_size)
         /* ??? If we relax the requirement that CONFIG_USER_ONLY use the
            static buffer, we could size this on RESERVED_VA, on the text
            segment size of the executable, or continue to use the default.  */
-        tb_size = (unsigned long)(uc->ram_size / 4);
+        tb_size = (unsigned long)DEFAULT_CODE_GEN_BUFFER_SIZE;
 #endif
     }
     if (tb_size < MIN_CODE_GEN_BUFFER_SIZE) {
@@ -723,7 +721,6 @@ void tcg_exec_init(struct uc_struct *uc, unsigned long tb_size)
     tcg_ctx = uc->tcg_ctx;
     tcg_ctx->code_gen_ptr = tcg_ctx->code_gen_buffer;
     tcg_ctx->uc = uc;
-    tcg_register_jit(tcg_ctx->code_gen_buffer, tcg_ctx->code_gen_buffer_size);
     page_init();
 #if !defined(CONFIG_USER_ONLY) || !defined(CONFIG_USE_GUEST_BASE)
     /* There's no guest base to take into account, so go ahead and
@@ -806,6 +803,9 @@ static void page_flush_tb_1(int level, void **lp)
 static void page_flush_tb(struct uc_struct *uc)
 {
     int i;
+
+    if (uc->l1_map == NULL)
+        return;
 
     for (i = 0; i < V_L1_SIZE; i++) {
         page_flush_tb_1(V_L1_SHIFT / V_L2_BITS - 1, uc->l1_map + i);
@@ -1528,15 +1528,6 @@ void tb_check_watchpoint(CPUState *cpu)
 static void tcg_handle_interrupt(CPUState *cpu, int mask)
 {
     cpu->interrupt_request |= mask;
-
-    /*
-     * If called from iothread context, wake the target cpu in
-     * case its halted.
-     */
-    if (!qemu_cpu_is_self(cpu)) {
-        qemu_cpu_kick(cpu);
-        return;
-    }
 
     cpu->tcg_exit_req = 1;
 }

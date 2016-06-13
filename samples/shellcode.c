@@ -9,7 +9,7 @@
 #include <windows.h>
 #define PRIx64 "llX"
 #ifdef DYNLOAD
-#include <unicorn/unicorn_dynload.h>
+#include "unicorn_dynload.h"
 #else // DYNLOAD
 #include <unicorn/unicorn.h>
 #ifdef _WIN64
@@ -138,7 +138,7 @@ static void test_i386(void)
     uc_hook_add(uc, &trace1, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // handle interrupt ourself
-    uc_hook_add(uc, &trace2, UC_HOOK_INTR, hook_intr, NULL);
+    uc_hook_add(uc, &trace2, UC_HOOK_INTR, hook_intr, NULL, 1, 0);
 
     printf("\n>>> Start tracing this Linux code\n");
 

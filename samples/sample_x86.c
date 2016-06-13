@@ -9,7 +9,7 @@
 #include <windows.h>
 #define PRIx64 "llX"
 #ifdef DYNLOAD
-#include <unicorn/unicorn_dynload.h>
+#include "unicorn_dynload.h"
 #else // DYNLOAD
 #include <unicorn/unicorn.h>
 #ifdef _WIN64
@@ -148,7 +148,7 @@ static uint32_t hook_in(uc_engine *uc, uint32_t port, int size, void *user_data)
 // callback for OUT instruction (X86).
 static void hook_out(uc_engine *uc, uint32_t port, int size, uint32_t value, void *user_data)
 {
-    uint32_t tmp;
+    uint32_t tmp = 0;
     uint32_t eip;
 
     uc_reg_read(uc, UC_X86_REG_EIP, &eip);
@@ -219,10 +219,80 @@ static void test_i386(void)
     uc_reg_write(uc, UC_X86_REG_EDX, &r_edx);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instruction by having @begin > @end
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
+
+    // emulate machine code in infinite time
+    err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32) - 1, 0, 0);
+    if (err) {
+        printf("Failed on uc_emu_start() with error returned %u: %s\n",
+                err, uc_strerror(err));
+    }
+
+    // now print out some registers
+    printf(">>> Emulation done. Below is the CPU context\n");
+
+    uc_reg_read(uc, UC_X86_REG_ECX, &r_ecx);
+    uc_reg_read(uc, UC_X86_REG_EDX, &r_edx);
+    printf(">>> ECX = 0x%x\n", r_ecx);
+    printf(">>> EDX = 0x%x\n", r_edx);
+
+    // read from memory
+    if (!uc_mem_read(uc, ADDRESS, &tmp, sizeof(tmp)))
+        printf(">>> Read 4 bytes from [0x%x] = 0x%x\n", ADDRESS, tmp);
+    else
+        printf(">>> Failed to read 4 bytes from [0x%x]\n", ADDRESS);
+
+    uc_close(uc);
+}
+
+static void test_i386_map_ptr(void)
+{
+    uc_engine *uc;
+    uc_err err;
+    uint32_t tmp;
+    uc_hook trace1, trace2;
+    void *mem;
+
+    int r_ecx = 0x1234;     // ECX register
+    int r_edx = 0x7890;     // EDX register
+
+    printf("===================================\n");
+    printf("Emulate i386 code - use uc_mem_map_ptr()\n");
+
+    // Initialize emulator in X86-32bit mode
+    err = uc_open(UC_ARCH_X86, UC_MODE_32, &uc);
+    if (err) {
+        printf("Failed on uc_open() with error returned: %u\n", err);
+        return;
+    }
+
+    // malloc 2MB memory for this emulation
+    mem = calloc(1, 2 * 1024 * 1024);
+    if (mem == NULL) {
+        printf("Failed to malloc()\n");
+        return;
+    }
+
+    uc_mem_map_ptr(uc, ADDRESS, 2 * 1024 * 1024, UC_PROT_ALL, mem);
+
+    // write machine code to be emulated to memory
+    if (!memcpy(mem, X86_CODE32, sizeof(X86_CODE32) - 1)) {
+        printf("Failed to write emulation code to memory, quit!\n");
+        return;
+    }
+
+    // initialize machine registers
+    uc_reg_write(uc, UC_X86_REG_ECX, &r_ecx);
+    uc_reg_write(uc, UC_X86_REG_EDX, &r_edx);
+
+    // tracing all basic blocks with customized callback
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
+
+    // tracing all instruction by having @begin > @end
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32) - 1, 0, 0);
@@ -275,10 +345,10 @@ static void test_i386_jump(void)
     }
 
     // tracing 1 basic block with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)ADDRESS, (uint64_t)ADDRESS);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, ADDRESS, ADDRESS);
 
     // tracing 1 instruction at ADDRESS
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)ADDRESS, (uint64_t)ADDRESS);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, ADDRESS, ADDRESS);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32_JUMP) - 1, 0, 0);
@@ -377,10 +447,10 @@ static void test_i386_invalid_mem_read(void)
     uc_reg_write(uc, UC_X86_REG_EDX, &r_edx);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instruction by having @begin > @end
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32_MEM_READ) - 1, 0, 0);
@@ -400,7 +470,7 @@ static void test_i386_invalid_mem_read(void)
     uc_close(uc);
 }
 
-// emulate code that read invalid memory
+// emulate code that write invalid memory
 static void test_i386_invalid_mem_write(void)
 {
     uc_engine *uc;
@@ -435,13 +505,13 @@ static void test_i386_invalid_mem_write(void)
     uc_reg_write(uc, UC_X86_REG_EDX, &r_edx);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instruction by having @begin > @end
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // intercept invalid memory events
-    uc_hook_add(uc, &trace3, UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED, hook_mem_invalid, NULL);
+    uc_hook_add(uc, &trace3, UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED, hook_mem_invalid, NULL, 1, 0);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32_MEM_WRITE) - 1, 0, 0);
@@ -462,7 +532,7 @@ static void test_i386_invalid_mem_write(void)
     if (!uc_mem_read(uc, 0xaaaaaaaa, &tmp, sizeof(tmp)))
         printf(">>> Read 4 bytes from [0x%x] = 0x%x\n", 0xaaaaaaaa, tmp);
     else
-        printf(">>> Failed to read 4 bytes from [0x%x]\n", 0xffffffaa);
+        printf(">>> Failed to read 4 bytes from [0x%x]\n", 0xaaaaaaaa);
 
     if (!uc_mem_read(uc, 0xffffffaa, &tmp, sizeof(tmp)))
         printf(">>> Read 4 bytes from [0x%x] = 0x%x\n", 0xffffffaa, tmp);
@@ -506,10 +576,10 @@ static void test_i386_jump_invalid(void)
     uc_reg_write(uc, UC_X86_REG_EDX, &r_edx);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instructions by having @begin > @end
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32_JMP_INVALID) - 1, 0, 0);
@@ -534,6 +604,7 @@ static void test_i386_inout(void)
     uc_engine *uc;
     uc_err err;
     uc_hook trace1, trace2, trace3, trace4;
+
 
     int r_eax = 0x1234;     // EAX register
     int r_ecx = 0x6789;     // ECX register
@@ -562,15 +633,15 @@ static void test_i386_inout(void)
     uc_reg_write(uc, UC_X86_REG_ECX, &r_ecx);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instructions
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code, NULL, 1, 0);
 
     // uc IN instruction
-    uc_hook_add(uc, &trace3, UC_HOOK_INSN, hook_in, NULL, UC_X86_INS_IN);
+    uc_hook_add(uc, &trace3, UC_HOOK_INSN, hook_in, NULL, 1, 0, UC_X86_INS_IN);
     // uc OUT instruction
-    uc_hook_add(uc, &trace4, UC_HOOK_INSN, hook_out, NULL, UC_X86_INS_OUT);
+    uc_hook_add(uc, &trace4, UC_HOOK_INSN, hook_out, NULL, 1, 0, UC_X86_INS_OUT);
 
     // emulate machine code in infinite time
     err = uc_emu_start(uc, ADDRESS, ADDRESS + sizeof(X86_CODE32_INOUT) - 1, 0, 0);
@@ -651,16 +722,16 @@ static void test_x86_64(void)
     uc_reg_write(uc, UC_X86_REG_R15, &r15);
 
     // tracing all basic blocks with customized callback
-    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace1, UC_HOOK_BLOCK, hook_block, NULL, 1, 0);
 
     // tracing all instructions in the range [ADDRESS, ADDRESS+20]
-    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code64, NULL, (uint64_t)ADDRESS, (uint64_t)(ADDRESS+20));
+    uc_hook_add(uc, &trace2, UC_HOOK_CODE, hook_code64, NULL, ADDRESS, ADDRESS+20);
 
     // tracing all memory WRITE access (with @begin > @end)
-    uc_hook_add(uc, &trace3, UC_HOOK_MEM_WRITE, hook_mem64, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace3, UC_HOOK_MEM_WRITE, hook_mem64, NULL, 1, 0);
 
     // tracing all memory READ access (with @begin > @end)
-    uc_hook_add(uc, &trace4, UC_HOOK_MEM_READ, hook_mem64, NULL, (uint64_t)1, (uint64_t)0);
+    uc_hook_add(uc, &trace4, UC_HOOK_MEM_READ, hook_mem64, NULL, 1, 0);
 
     // emulate machine code in infinite time (last param = 0), or when
     // finishing all the code.
@@ -734,7 +805,7 @@ static void test_x86_64_syscall(void)
     }
 
     // hook interrupts for syscall
-    uc_hook_add(uc, &trace1, UC_HOOK_INSN, hook_syscall, NULL, UC_X86_INS_SYSCALL);
+    uc_hook_add(uc, &trace1, UC_HOOK_INSN, hook_syscall, NULL, 1, 0, UC_X86_INS_SYSCALL);
 
     // initialize machine registers
     uc_reg_write(uc, UC_X86_REG_RAX, &rax);
@@ -780,7 +851,7 @@ static void test_x86_16(void)
     uc_mem_map(uc, 0, 8 * 1024, UC_PROT_ALL);
 
     // write machine code to be emulated to memory
-    if (uc_mem_write(uc, 0, X86_CODE16, sizeof(X86_CODE64) - 1)) {
+    if (uc_mem_write(uc, 0, X86_CODE16, sizeof(X86_CODE16) - 1)) {
         printf("Failed to write emulation code to memory, quit!\n");
         return;
     }
@@ -826,6 +897,7 @@ int main(int argc, char **argv, char **envp)
 	if (argc == 2) {
         if (!strcmp(argv[1], "-32")) {
             test_i386();
+            test_i386_map_ptr();
             test_i386_inout();
             test_i386_jump();
             test_i386_loop();
@@ -841,14 +913,6 @@ int main(int argc, char **argv, char **envp)
 
         if (!strcmp(argv[1], "-16")) {
             test_x86_16();
-        }
-
-        // test memleak
-        if (!strcmp(argv[1], "-0")) {
-            while(1) {
-                test_i386();
-                // test_x86_64();
-            }
         }
     } else {
         printf("Syntax: %s <-16|-32|-64>\n", argv[0]);

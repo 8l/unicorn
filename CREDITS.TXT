@@ -52,4 +52,14 @@ Contributors (in no particular order)
 
 Nguyen Tan Cong
 Loi Anh Tuan
-Shaun Wheelhouse: Homebrew package.
+Shaun Wheelhouse: Homebrew package
+Kamil Rytarowski: Pkgsrc package
+Zak Escano: MSVC binding
+Chris Eagle: Java binding
+Ryan Hileman: Go binding
+Antonio Parata: .NET binding
+Jonathon Reinhart: C unit test
+Sascha Schirra: Ruby binding
+Adrian Herrera: Haskell binding
+practicalswift: Various cool bugs found by fuzzing
+farmdve: Memory leaking fix

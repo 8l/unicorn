@@ -61,22 +61,15 @@ extern int daemon(int, int);
 #include <sys/signal.h>
 
 #ifdef CONFIG_LINUX
+#if !defined(__CYGWIN__)
 #include <sys/syscall.h>
+#endif
 #include <sys/vfs.h>
 #endif
 
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
 #endif
-
-int qemu_get_thread_id(void)
-{
-#if defined(__linux__)
-    return syscall(SYS_gettid);
-#else
-    return getpid();
-#endif
-}
 
 int qemu_daemon(int nochdir, int noclose)
 {
